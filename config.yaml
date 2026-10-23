@@ -30,10 +30,10 @@ places:
   - zevenhuizen
 
 # ── Grote portals (ingebouwd, zoeken per plaats) ─────────────────
-portals:
-  pararius: true
-  huurwoningen: true
-  funda: true
+   portals:
+     pararius: false
+     huurwoningen: false
+     funda: false
 
 # ── Verhuurders / makelaars ──────────────────────────────────────
 # Per site één of meer aanbodpagina's. De bot meldt elke NIEUWE link op
