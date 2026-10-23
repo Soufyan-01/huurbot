@@ -8,6 +8,14 @@ max_price: 1800
 # Minimale woonoppervlakte in m² (0 = geen filter)
 min_area: 0
 
+# Woningen met deze woorden in de link of tekst worden overgeslagen
+exclude_words:
+  - recreatiewoning
+  - vakantiewoning
+  - parkeerplaats
+  - garagebox
+  - berging
+
 # Plaatsen binnen ~10 km van Gouda (kleine letters, streepjes).
 places:
   - gouda

@@ -16,6 +16,11 @@ from urllib.parse import urljoin, urlparse
 
 import requests
 import yaml
+
+try:
+    from curl_cffi import requests as browser_requests   # doet zich voor als Chrome
+except ImportError:
+    browser_requests = None
 from bs4 import BeautifulSoup
 
 ROOT = Path(__file__).parent
@@ -50,6 +55,8 @@ KEEP_DAYS = 90
 FAIL_ALERT_AT = 6
 
 MIN_P, MAX_P = CONFIG["min_price"], CONFIG["max_price"]
+_ex = [re.escape(w) for w in CONFIG.get("exclude_words", []) or []]
+EXCLUDE_RE = re.compile("|".join(_ex), re.I) if _ex else None
 PLACES = CONFIG["places"]
 
 
@@ -75,7 +82,7 @@ def portal_jobs():
     for name, on in CONFIG.get("portals", {}).items():
         if on and name in defs:
             url_fn, rx = defs[name]
-            jobs.append({"name": name, "kind": "portal", "link": re.compile(rx),
+            jobs.append({"name": name, "kind": "portal", "link": re.compile(rx), "browser": True,
                          "pages": [(url_fn(p), p) for p in PLACES]})
     return jobs
 
@@ -230,11 +237,47 @@ GENERIC_TITLES = {"details", "bekijk", "bekijken", "woning bekijken", "meer info
                   "meer informatie", "reageer", "lees meer", "bekijk woning"}
 
 
+CHALLENGE_RE = re.compile(r"captcha|ben je een robot|are you a robot|just a moment|"
+                          r"access denied|cf-browser-verification", re.I)
+
+
+def get_page(session, url, prefer_browser=False):
+    """Haalt een pagina op. Bij blokkade (403/429/captcha) nog eens als 'echte' Chrome."""
+    def plain():
+        return session.get(url, timeout=20)
+
+    def browser():
+        return browser_requests.get(url, impersonate="chrome", timeout=25,
+                                    headers={"Accept-Language": HEADERS["Accept-Language"]})
+
+    attempts = [browser, plain] if (prefer_browser and browser_requests) else [plain]
+    if browser_requests and not prefer_browser:
+        attempts.append(browser)
+
+    last = None
+    for i, fn in enumerate(attempts):
+        for retry in range(2):
+            try:
+                r = fn()
+            except Exception as e:                       # verbinding verbroken e.d.
+                last = e
+                time.sleep(4)
+                continue
+            blocked = r.status_code in (403, 429) or (
+                r.status_code == 200 and len(r.text) < 60000 and CHALLENGE_RE.search(r.text[:20000]))
+            if not blocked:
+                return r
+            last = requests.HTTPError(f"{r.status_code} geblokkeerd: {url}")
+            break                                        # zelfde methode opnieuw heeft geen zin
+    raise last if isinstance(last, requests.RequestException) else requests.RequestException(str(last))
+
+
 def extract(page_html, page_url, job, page_place):
     soup = BeautifulSoup(page_html, "html.parser")
     host = urlparse(page_url).netloc.removeprefix("www.")
     page_base = page_url.split("?")[0].rstrip("/")
     found = {}
+    raw_links = set()
 
     for a in soup.find_all("a", href=True):
         raw = a["href"].strip()
@@ -247,6 +290,7 @@ def extract(page_html, page_url, job, page_place):
             if not (job["link"].search(u.path) or job["link"].search(raw.split("?")[0])):
                 continue
             url = url.split("?")[0]
+            raw_links.add(url)
             place = page_place
             block = climb(a)
         else:
@@ -259,6 +303,7 @@ def extract(page_html, page_url, job, page_place):
                 continue
             if job["pattern"] and not job["pattern"].search(url):
                 continue
+            raw_links.add(url)
             block = climb(a, max_len=800)
             hay = norm(url + " " + block)
             place = next((p for p in PLACES if norm(p) in hay), None)
@@ -266,6 +311,8 @@ def extract(page_html, page_url, job, page_place):
                 continue
 
         if GONE_RE.search(block):
+            continue
+        if EXCLUDE_RE and EXCLUDE_RE.search(url + " " + block):
             continue
 
         title = a.get_text(" ", strip=True)
@@ -285,7 +332,7 @@ def extract(page_html, page_url, job, page_place):
             slug = item["url"].rstrip("/").split("/")[-1].split("?")[0]
             slug = re.sub(r"-[0-9a-f]{20,}$|(-\d+){2,}$|-h\d+$", "", slug)
             item["title"] = re.sub(r"[-+]", " ", slug).title() or "Woning"
-    return list(found.values())
+    return list(found.values()), len(raw_links)
 
 
 def matches(item):
@@ -313,28 +360,32 @@ def main():
     new_items, report = [], []
 
     for job in portal_jobs() + site_jobs():
-        name, total, errors, items_all = job["name"], 0, [], []
+        name, total, raw_total, errors, items_all = job["name"], 0, 0, [], []
         if job.get("api") == "vesteda":
             try:
                 items_all = fetch_vesteda(session)
                 total = len(items_all)
+                raw_total = max(1, total)                 # lege regio is geen storing
             except (requests.RequestException, ValueError) as e:
                 errors.append(f"{e.__class__.__name__}: {str(e)[:80]}")
         for url, place in job["pages"]:
             try:
-                r = session.get(url, timeout=20)
+                r = get_page(session, url, prefer_browser=job.get("browser", False))
                 if r.status_code == 404 and (job["kind"] == "portal" or job.get("expanded")):
+                    raw_total += 1                      # plaats bestaat niet op site: geen storing
                     continue
-                r.raise_for_status()
-                items = extract(r.text, url, job, place)
+                if r.status_code >= 400:
+                    raise requests.HTTPError(f"{r.status_code} voor {url}")
+                items, raw = extract(r.text, url, job, place)
                 total += len(items)
+                raw_total += raw
                 items_all += items
             except requests.RequestException as e:
-                errors.append(f"{e.__class__.__name__}: {str(e)[:80]}")
-            time.sleep(random.uniform(1.0, 2.5))
+                errors.append(f"{str(e)[:90]}")
+            time.sleep(random.uniform(2.0, 4.0))
 
         if TEST:
-            line = f"<b>{html.escape(name)}</b>: {total} advertenties"
+            line = f"<b>{html.escape(name)}</b>: {total} in je regio ({raw_total} gescand)"
             if errors:
                 line += f" ⚠️ {html.escape(errors[0])}"
             for it in items_all[:3]:
@@ -349,7 +400,7 @@ def main():
                 if not first_time and matches(it):
                     new_items.append((it, name))
 
-        if total == 0:
+        if raw_total == 0:
             n = state["fails"].get(name, 0) + 1
             state["fails"][name] = n
             print(f"{name}: 0 resultaten ({n}x op rij). {errors[:1]}")
@@ -362,7 +413,7 @@ def main():
             state["fails"][name] = 0
             if first_time:
                 state["seeded"].append(name)
-                telegram(f"🤖 {html.escape(name)} gekoppeld: {total} bestaande advertenties "
+                telegram(f"🤖 {html.escape(name)} gekoppeld: {total} bestaande advertenties in je regio "
                          f"opgeslagen. Vanaf nu krijg je alleen nieuwe.")
             print(f"{name}: {total} advertenties gezien")
 
