@@ -112,6 +112,9 @@ def site_jobs():
     return jobs
 
 
+VESTEDA_SKIPPED = []
+
+
 def fetch_vesteda(session, radius=10):
     """Vesteda laadt woningen via een achterliggende zoekdienst (JSON)."""
     body = {
@@ -141,10 +144,14 @@ def fetch_vesteda(session, radius=10):
                              if isinstance(o.get(k), (int, float))), None)
                 hay = norm(full + " " + city)
                 place = next((p for p in PLACES if norm(p) in hay), None) or city or "regio Gouda"
-                if not GONE_RE.search(str(o.get("status") or "")):
-                    items.append({"url": full, "title": title or city, "place": place,
+                status = str(o.get("status") or o.get("statusText") or "")
+                if not GONE_RE.search(status):
+                    items.append({"url": full, "title": (title or city) + (f", {city}" if city and city.lower() not in (title or "").lower() else ""),
+                                  "place": place,
                                   "price": int(price) if price else None,
                                   "area": int(area) if area else None})
+                else:
+                    VESTEDA_SKIPPED.append(f"{title} {city} ({status})")
             for v in o.values():
                 walk(v)
         elif isinstance(o, list):
@@ -250,8 +257,9 @@ GENERIC_TITLES = {"details", "bekijk", "bekijken", "woning bekijken", "meer info
                   "meer informatie", "reageer", "lees meer", "bekijk woning"}
 
 
-CHALLENGE_RE = re.compile(r"captcha|ben je een robot|are you a robot|just a moment|"
-                          r"access denied|cf-browser-verification", re.I)
+# Alleen échte blokkadepagina's herkennen (géén gewone captcha in een formulier)
+CHALLENGE_RE = re.compile(r"ben je een robot|are you a robot|just a moment\.\.\.|"
+                          r"cf-browser-verification|challenge-platform|verify you are human", re.I)
 
 
 def get_page(session, url, prefer_browser=False):
@@ -277,7 +285,7 @@ def get_page(session, url, prefer_browser=False):
                 time.sleep(4)
                 continue
             blocked = r.status_code in (403, 429) or (
-                r.status_code == 200 and len(r.text) < 60000 and CHALLENGE_RE.search(r.text[:20000]))
+                r.status_code == 200 and len(r.text) < 25000 and CHALLENGE_RE.search(r.text))
             if not blocked:
                 return r
             last = requests.HTTPError(f"{r.status_code} geblokkeerd: {url}")
@@ -435,11 +443,17 @@ def main():
             continue
 
         if TEST:
-            line = f"<b>{html.escape(name)}</b>: {total} in je regio ({raw_total} gescand)"
+            hits = [i for i in items_all if matches(i)]
+            line = (f"<b>{html.escape(name)}</b>: {raw_total} gescand · {total} in regio · "
+                    f"{len(hits)} binnen je filters")
             if errors:
-                line += f" ⚠️ {html.escape(errors[0])}"
-            for it in items_all[:3]:
-                line += f"\n   • {html.escape(it['title'][:60])} – {html.escape(it['url'])}"
+                line += f"\n   ⚠️ {html.escape(errors[0])}"
+            for it in items_all[:8]:
+                p = f"€{it['price']}" if it["price"] else "€?"
+                mark = "✅" if matches(it) else "🚫"
+                line += f"\n   {mark} {html.escape(it['title'][:45])} ({html.escape(str(it['place']))}) {p}"
+            if job.get("api") == "vesteda" and VESTEDA_SKIPPED:
+                line += "\n   verhuurd/weggefilterd: " + html.escape(", ".join(VESTEDA_SKIPPED[:5]))
             report.append(line)
             continue
 
