@@ -114,6 +114,7 @@ def site_jobs():
 
 
 VESTEDA_SKIPPED = []
+LAST_RAW = frozenset()
 SKIPPED = {}   # per bron: waarom woningen in je regio zijn overgeslagen (voor de test)
 
 
@@ -363,6 +364,8 @@ def extract(page_html, page_url, job, page_place):
             slug = item["url"].rstrip("/").split("/")[-1].split("?")[0]
             slug = re.sub(r"-[0-9a-f]{20,}$|(-\d+){2,}$|-h\d+$", "", slug)
             item["title"] = re.sub(r"[-+]", " ", slug).title() or "Woning"
+    global LAST_RAW
+    LAST_RAW = frozenset(raw_links)
     return list(found.values()), len(raw_links)
 
 
@@ -423,6 +426,8 @@ def main():
             except (requests.RequestException, ValueError) as e:
                 errors.append(f"{e.__class__.__name__}: {str(e)[:80]}")
         finished = set()                                  # pagina-reeksen die op hun einde zijn
+        prev_page = {}                                    # vorige pagina per reeks (dubbel-check)
+        pages_ok = 0
         for url, place, seq in job["pages"]:
             if seq and seq in finished:
                 continue
@@ -439,6 +444,12 @@ def main():
                 if seq and raw == 0:
                     finished.add(seq)                     # laatste pagina gehad
                     continue
+                if seq and prev_page.get(seq) == LAST_RAW:
+                    finished.add(seq)                     # site gaf dezelfde pagina terug: stoppen
+                    continue
+                if seq:
+                    prev_page[seq] = LAST_RAW
+                pages_ok += 1
                 total += len(items)
                 raw_total += raw
                 items_all += items
@@ -458,8 +469,8 @@ def main():
 
         if TEST:
             hits = [i for i in items_all if matches(i)]
-            line = (f"<b>{html.escape(name)}</b>: {raw_total} gescand · {total} in regio · "
-                    f"{len(hits)} binnen je filters")
+            line = (f"<b>{html.escape(name)}</b>: {raw_total} gescand ({pages_ok} pagina's) · "
+                    f"{total} in regio · {len(hits)} binnen je filters")
             if errors:
                 line += f"\n   ⚠️ {html.escape(errors[0])}"
             for it in items_all[:8]:
