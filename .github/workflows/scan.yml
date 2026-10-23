@@ -9,9 +9,13 @@ on:
         description: "Testmodus: stuur per bron een rapport naar Telegram"
         type: boolean
         default: false
+      overzicht:
+        description: "Overzicht: stuur alle woningen die NU beschikbaar zijn"
+        type: boolean
+        default: false
 
 concurrency:
-  group: huurbot
+  group: huurbot-${{ inputs.overzicht && 'overzicht' || inputs.test && 'test' || 'live' }}
   cancel-in-progress: false
 
 permissions:
@@ -31,15 +35,22 @@ jobs:
 
       - run: pip install -r requirements.txt
 
+      - name: Overzicht huidig aanbod
+        if: ${{ inputs.overzicht }}
+        env:
+          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: python bot.py --overzicht
+
       - name: Test
-        if: ${{ inputs.test }}
+        if: ${{ inputs.test && !inputs.overzicht }}
         env:
           TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: python bot.py --test
 
       - name: Live scannen
-        if: ${{ !inputs.test }}
+        if: ${{ !inputs.test && !inputs.overzicht }}
         env:
           TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
