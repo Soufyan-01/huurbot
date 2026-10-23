@@ -30,10 +30,11 @@ places:
   - zevenhuizen
 
 # ── Grote portals (ingebouwd, zoeken per plaats) ─────────────────
-   portals:
-     pararius: false
-     huurwoningen: false
-     funda: false
+# Uitgezet: deze blokkeren GitHub. Gebruik hun eigen app/e-mailalerts.
+portals:
+  pararius: false
+  huurwoningen: false
+  funda: false
 
 # ── Verhuurders / makelaars ──────────────────────────────────────
 # Per site één of meer aanbodpagina's. De bot meldt elke NIEUWE link op

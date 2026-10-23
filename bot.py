@@ -382,7 +382,7 @@ def main():
                 items_all += items
             except requests.RequestException as e:
                 errors.append(f"{str(e)[:90]}")
-            time.sleep(random.uniform(2.0, 4.0))
+            time.sleep(random.uniform(1.0, 2.0))
 
         if TEST:
             line = f"<b>{html.escape(name)}</b>: {total} in je regio ({raw_total} gescand)"
