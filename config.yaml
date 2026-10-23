@@ -57,9 +57,9 @@ sites:
   - name: Ikwilhuren (MVGM)
     # Live: de 3 nieuwste pagina's van heel NL (nieuwe woningen staan bovenaan).
     # Overzicht: alle pagina's, zodat ook het bestaande aanbod in je regio gevonden wordt.
-    urls: ["https://ikwilhuren.nu/aanbod/?sort=aanbodDESC&page={page}"]
-    max_pages: 3
-    overview_max_pages: 150
+    urls: ["https://ikwilhuren.nu/aanbod/?page={page}"]
+    max_pages: 5
+    overview_max_pages: 120
     pattern: "/object/"
   - name: BPD Woningfonds
     urls: ["https://hurenbij.bpdwoningfonds.nl/aanbod/"]
