@@ -1,0 +1,29 @@
+{
+ "fails": {
+  "123Wonen": 0,
+  "Ikwilhuren (MVGM)": 0,
+  "Rotsvast": 0,
+  "Stienstra Wonen": 0,
+  "VB&T Verhuurmakelaars": 0,
+  "Vesteda": 0
+ },
+ "seeded": [
+  "Stienstra Wonen",
+  "Vesteda",
+  "Ikwilhuren (MVGM)",
+  "VB&T Verhuurmakelaars",
+  "Rotsvast",
+  "123Wonen"
+ ],
+ "seen": {
+  "https://www.rotsvast.nl/huren/blauwstraat-gouda-h102511558/": 1792748088.955845,
+  "https://www.rotsvast.nl/huren/keizerstraat-gouda-h102511727/": 1792748088.9558396,
+  "https://www.rotsvast.nl/huren/lange-tiendeweg-gouda-h102511821/": 1792748088.9558444,
+  "https://www.rotsvast.nl/huren/limaweg-waddinxveen-h102511725/": 1792748088.9558456,
+  "https://www.rotsvast.nl/huren/peperstraat-gouda-h102511886/": 1792748088.9558418,
+  "https://www.rotsvast.nl/huren/westhaven-gouda-h102511359/": 1792748088.9558427,
+  "https://www.stienstra.nl/woning/middenwillenseweg-101-gouda": 1792747952.2881122,
+  "https://www.stienstra.nl/woning/waterpeper-21-gouda": 1792747952.288116,
+  "https://www.vesteda.com/nl/goudshof/jozefhof-123-gouda-50503": 1792747953.6999993
+ }
+}
