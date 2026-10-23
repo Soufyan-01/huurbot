@@ -20,6 +20,7 @@ concurrency:
 
 permissions:
   contents: write
+  actions: write
 
 jobs:
   scan:
@@ -71,3 +72,9 @@ jobs:
             if [ $wait -gt 0 ]; then sleep $wait; fi
           done
           exit 0
+
+      - name: Volgende sessie starten (estafette)
+        if: ${{ !inputs.test && !inputs.overzicht }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run scan.yml --ref ${{ github.ref_name }}
