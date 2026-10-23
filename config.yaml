@@ -55,9 +55,11 @@ sites:
     api: vesteda
     radius: 20
   - name: Ikwilhuren (MVGM)
-    # TIJDELIJK: landelijk nieuwste aanbod. Vervang door de URL van een zoekopdracht op Gouda + straal.
+    # Live: de 3 nieuwste pagina's van heel NL (nieuwe woningen staan bovenaan).
+    # Overzicht: alle pagina's, zodat ook het bestaande aanbod in je regio gevonden wordt.
     urls: ["https://ikwilhuren.nu/aanbod/?sort=aanbodDESC&page={page}"]
     max_pages: 3
+    overview_max_pages: 150
     pattern: "/object/"
   - name: VB&T Verhuurmakelaars
     urls: ["https://vbtverhuurmakelaars.nl/woningen/{page}"]

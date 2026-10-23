@@ -98,7 +98,8 @@ def site_jobs():
                 base = u.replace("{place}", p or "")
                 if "{page}" in base:
                     seq = f"{s['name']}|{base}"
-                    for n in range(1, int(s.get("max_pages", 20)) + 1):
+                    limit = s.get("overview_max_pages") if OVERVIEW else None
+                    for n in range(1, int(limit or s.get("max_pages", 20)) + 1):
                         pages.append((base.replace("{page}", str(n)), p, seq))
                 else:
                     pages.append((base, p, None))
