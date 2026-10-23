@@ -44,8 +44,9 @@ HEADERS = {
 }
 
 PRICE_RE = re.compile(r"€\s*([\d.]{3,7})")
-AREA_RE = re.compile(r"(\d{2,4})\s*m²")
-GONE_RE = re.compile(r"\b(verhuurd|verkocht|niet meer beschikbaar)\b", re.I)
+PRICE_RE2 = re.compile(r"(?<![\d.])(\d{1,2}\.\d{3}|\d{3,4}),-")   # "1.102,-" zonder €-teken
+AREA_RE = re.compile(r"(\d{2,4})\s*m(?:²|2)\b")
+GONE_RE = re.compile(r"\b(verhuurd|verkocht|gereserveerd|niet meer beschikbaar)\b", re.I)
 NAV_RE = re.compile(
     r"/(contact|over-ons|over|about|login|inloggen|mijn|account|registreren|"
     r"nieuws|blog|vacatures?|faq|veelgestelde-vragen|privacy|cookies?|disclaimer|"
@@ -248,7 +249,7 @@ def climb(a, max_len=1500):
         if len(text) > max_len:
             break
         block = text
-        if "€" in text:
+        if "€" in text or PRICE_RE2.search(text):
             break
     return block
 
@@ -343,7 +344,7 @@ def extract(page_html, page_url, job, page_place):
                                       "price": None, "area": None})
         if len(title) > len(item["title"]):
             item["title"] = title[:120]
-        if item["price"] is None and (m := PRICE_RE.search(block)):
+        if item["price"] is None and (m := PRICE_RE.search(block) or PRICE_RE2.search(block)):
             item["price"] = parse_int(m.group(1))
         if item["area"] is None and (m := AREA_RE.search(block)):
             item["area"] = int(m.group(1))
@@ -356,6 +357,12 @@ def extract(page_html, page_url, job, page_place):
             slug = re.sub(r"-[0-9a-f]{20,}$|(-\d+){2,}$|-h\d+$", "", slug)
             item["title"] = re.sub(r"[-+]", " ", slug).title() or "Woning"
     return list(found.values()), len(raw_links)
+
+
+def uid(url):
+    """Zelfde woning op meerdere sites (bv. BPD en Ikwilhuren) herkennen aan het object-ID."""
+    m = re.search(r"[0-9a-f]{32}", url)
+    return m.group(0) if m else url
 
 
 def matches(item):
@@ -459,8 +466,9 @@ def main():
 
         first_time = name not in state["seeded"]
         for it in items_all:
-            if it["url"] not in state["seen"]:
-                state["seen"][it["url"]] = time.time()
+            key = uid(it["url"])
+            if key not in state["seen"]:
+                state["seen"][key] = time.time()
                 if not first_time and matches(it):
                     new_items.append((it, name))
 
