@@ -1,0 +1,73 @@
+name: Huurbot scan
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"   # start steeds een nieuwe ronde; er draait er altijd maar één
+  workflow_dispatch:
+    inputs:
+      test:
+        description: "Testmodus: stuur per bron een rapport naar Telegram"
+        type: boolean
+        default: false
+      overzicht:
+        description: "Overzicht: stuur alle woningen die NU beschikbaar zijn"
+        type: boolean
+        default: false
+
+concurrency:
+  group: huurbot-${{ inputs.overzicht && 'overzicht' || inputs.test && 'test' || 'live' }}
+  cancel-in-progress: false   # volgende ronde wacht en start direct als de vorige klaar is
+
+permissions:
+  contents: write
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 58
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - run: pip install -r requirements.txt
+
+      - name: Overzicht huidig aanbod
+        if: ${{ inputs.overzicht }}
+        env:
+          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: python bot.py --overzicht
+
+      - name: Test
+        if: ${{ inputs.test && !inputs.overzicht }}
+        env:
+          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: python bot.py --test
+
+      - name: Live scannen (50 minuten, elke ~2 minuten een ronde)
+        if: ${{ !inputs.test && !inputs.overzicht }}
+        env:
+          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          WHATSAPP_PHONE: ${{ secrets.WHATSAPP_PHONE }}
+          WHATSAPP_APIKEY: ${{ secrets.WHATSAPP_APIKEY }}
+        run: |
+          git config user.name "huurbot"
+          git config user.email "huurbot@users.noreply.github.com"
+          end=$((SECONDS + 50*60))
+          while [ $SECONDS -lt $end ]; do
+            start=$SECONDS
+            python bot.py || echo "ronde mislukt, ga door"
+            git add seen.json
+            if ! git diff --cached --quiet; then
+              git commit -q -m "update seen.json" && git push -q || echo "push mislukt, volgende ronde opnieuw"
+            fi
+            # minimaal 60 seconden per ronde, zodat we de sites niet overbelasten
+            wait=$((60 - (SECONDS - start)))
+            [ $wait -gt 0 ] && sleep $wait
+          done

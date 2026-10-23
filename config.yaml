@@ -41,27 +41,27 @@ portals:
 # die pagina('s) waarin een van je plaatsen voorkomt.
 # {place} in een URL = de bot herhaalt die URL voor elke plaats hierboven.
 # pattern = stukje (regex) dat in elke advertentie-URL zit, om menu-links te negeren.
+# Opties per site:
+#   {place} in URL  = herhaal voor elke plaats hierboven
+#   {page} in URL   = blader door pagina's tot de laatste (max_pages)
+#   radius_filtered = site filtert zelf op afstand; dan ook plaatsen buiten je lijst tonen
+#   pattern         = stukje (regex) dat in elke advertentie-URL zit
 sites:
   - name: Stienstra Wonen
     urls: ["https://www.stienstra.nl/uitgebreid-zoeken?lat=52.0115205&lng=4.7104633&use_radius=on&search_location=Gouda%2C+Nederland&radius=15&min-price=0&max-price=500000"]
     pattern: "/woning/"
+    radius_filtered: true
   - name: Vesteda
-    api: vesteda            # site laadt woningen via JavaScript: speciale koppeling
-    urls: []
+    api: vesteda
+    radius: 20
   - name: Ikwilhuren (MVGM)
-    # landelijk aanbod, nieuwste eerst: de bot filtert zelf op je plaatsen
-    urls:
-      - "https://ikwilhuren.nu/aanbod/?sort=aanbodDESC&page=1"
-      - "https://ikwilhuren.nu/aanbod/?sort=aanbodDESC&page=2"
-      - "https://ikwilhuren.nu/aanbod/?sort=aanbodDESC&page=3"
+    # TIJDELIJK: landelijk nieuwste aanbod. Vervang door de URL van een zoekopdracht op Gouda + straal.
+    urls: ["https://ikwilhuren.nu/aanbod/?sort=aanbodDESC&page={page}"]
+    max_pages: 3
     pattern: "/object/"
   - name: VB&T Verhuurmakelaars
-    urls:
-      - "https://vbtverhuurmakelaars.nl/woningen/1"
-      - "https://vbtverhuurmakelaars.nl/woningen/2"
-      - "https://vbtverhuurmakelaars.nl/woningen/3"
-      - "https://vbtverhuurmakelaars.nl/woningen/4"
-      - "https://vbtverhuurmakelaars.nl/woningen/5"
+    urls: ["https://vbtverhuurmakelaars.nl/woningen/{page}"]
+    max_pages: 25
     pattern: "/woning/"
   - name: Rotsvast
     urls: ["https://www.rotsvast.nl/huren/?search={place}"]

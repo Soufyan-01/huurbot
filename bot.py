@@ -27,6 +27,7 @@ ROOT = Path(__file__).parent
 STATE_FILE = ROOT / "seen.json"
 CONFIG = yaml.safe_load((ROOT / "config.yaml").read_text(encoding="utf-8"))
 TEST = "--test" in sys.argv
+OVERVIEW = "--overzicht" in sys.argv
 
 TG_TOKEN = os.environ.get("TELEGRAM_TOKEN")
 TG_CHAT = os.environ.get("TELEGRAM_CHAT_ID")
@@ -83,27 +84,38 @@ def portal_jobs():
         if on and name in defs:
             url_fn, rx = defs[name]
             jobs.append({"name": name, "kind": "portal", "link": re.compile(rx), "browser": True,
-                         "pages": [(url_fn(p), p) for p in PLACES]})
+                         "pages": [(url_fn(p), p, None) for p in PLACES]})
     return jobs
 
 
 def site_jobs():
     jobs = []
     for s in CONFIG.get("sites", []) or []:
+        pages = []
+        for u in s.get("urls", []) or []:
+            places = PLACES if "{place}" in u else [None]
+            for p in places:
+                base = u.replace("{place}", p or "")
+                if "{page}" in base:
+                    seq = f"{s['name']}|{base}"
+                    for n in range(1, int(s.get("max_pages", 20)) + 1):
+                        pages.append((base.replace("{page}", str(n)), p, seq))
+                else:
+                    pages.append((base, p, None))
         jobs.append({"name": s["name"], "kind": "site", "api": s.get("api"),
+                     "radius": s.get("radius", 10),
+                     "radius_filtered": bool(s.get("radius_filtered")),
                      "pattern": re.compile(s["pattern"]) if s.get("pattern") else None,
-                     "pages": [(u.replace("{place}", p or ""), None)
-                               for u in s["urls"]
-                               for p in (PLACES if "{place}" in u else [None])],
-                     "expanded": any("{place}" in u for u in s["urls"])})
+                     "pages": pages,
+                     "expanded": any("{place}" in u for u in s.get("urls", []) or [])})
     return jobs
 
 
-def fetch_vesteda(session):
+def fetch_vesteda(session, radius=10):
     """Vesteda laadt woningen via een achterliggende zoekdienst (JSON)."""
     body = {
         "filters": [], "latitude": 52.01152, "longitude": 4.7104635,
-        "place": "Gouda", "placeType": 1, "radius": 10,
+        "place": "Gouda", "placeType": 1, "radius": radius,
         "priceFrom": MIN_P, "priceTo": MAX_P, "sorting": 0,
         "paging": {"pageNo": 1, "pageSize": 60},
     }
@@ -127,8 +139,8 @@ def fetch_vesteda(session):
                 area = next((o.get(k) for k in ("size", "surface", "livingArea")
                              if isinstance(o.get(k), (int, float))), None)
                 hay = norm(full + " " + city)
-                place = next((p for p in PLACES if norm(p) in hay), None)
-                if place and not GONE_RE.search(str(o.get("status") or "")):
+                place = next((p for p in PLACES if norm(p) in hay), None) or city or "regio Gouda"
+                if not GONE_RE.search(str(o.get("status") or "")):
                     items.append({"url": full, "title": title or city, "place": place,
                                   "price": int(price) if price else None,
                                   "area": int(area) if area else None})
@@ -308,7 +320,9 @@ def extract(page_html, page_url, job, page_place):
             hay = norm(url + " " + block)
             place = next((p for p in PLACES if norm(p) in hay), None)
             if not place:
-                continue
+                if not job.get("radius_filtered"):
+                    continue
+                place = "regio Gouda"
 
         if GONE_RE.search(block):
             continue
@@ -326,7 +340,7 @@ def extract(page_html, page_url, job, page_place):
             item["area"] = int(m.group(1))
 
     for item in found.values():
-        if len(item["title"]) > 70 or item["title"].lower() in GENERIC_TITLES:
+        if len(item["title"]) > 70 or "€" in item["title"] or item["title"].lower() in GENERIC_TITLES:
             item["title"] = ""
         if not item["title"]:
             slug = item["url"].rstrip("/").split("/")[-1].split("?")[0]
@@ -344,6 +358,23 @@ def matches(item):
     return True   # onbekende prijs/m²: liever wél melden
 
 
+def line(item):
+    price = f"€ {item['price']:,}".replace(",", ".") if item["price"] else "prijs ?"
+    area = f" · {item['area']} m²" if item["area"] else ""
+    return (f"• <b>{html.escape(item['title'][:60])}</b> – {price}{area}\n"
+            f"  {html.escape(item['url'])}")
+
+
+def send_list(header, items, per_msg=12):
+    if not items:
+        telegram(header)
+        return
+    for i in range(0, len(items), per_msg):
+        chunk = items[i:i + per_msg]
+        head = header if i == 0 else header + " (vervolg)"
+        telegram(head + "\n\n" + "\n\n".join(line(x) for x in chunk))
+
+
 def fmt(item, source):
     price = f"€ {item['price']:,}".replace(",", ".") if item["price"] else "prijs onbekend"
     area = f" · {item['area']} m²" if item["area"] else ""
@@ -357,32 +388,50 @@ def main():
     state = load_state()
     session = requests.Session()
     session.headers.update(HEADERS)
-    new_items, report = [], []
+    new_items, report, overview = [], [], []
 
     for job in portal_jobs() + site_jobs():
         name, total, raw_total, errors, items_all = job["name"], 0, 0, [], []
         if job.get("api") == "vesteda":
             try:
-                items_all = fetch_vesteda(session)
+                items_all = fetch_vesteda(session, job.get("radius", 10))
                 total = len(items_all)
                 raw_total = max(1, total)                 # lege regio is geen storing
             except (requests.RequestException, ValueError) as e:
                 errors.append(f"{e.__class__.__name__}: {str(e)[:80]}")
-        for url, place in job["pages"]:
+        finished = set()                                  # pagina-reeksen die op hun einde zijn
+        for url, place, seq in job["pages"]:
+            if seq and seq in finished:
+                continue
             try:
                 r = get_page(session, url, prefer_browser=job.get("browser", False))
-                if r.status_code == 404 and (job["kind"] == "portal" or job.get("expanded")):
-                    raw_total += 1                      # plaats bestaat niet op site: geen storing
+                if r.status_code == 404:
+                    raw_total += 1                        # bestaat niet: geen storing
+                    if seq:
+                        finished.add(seq)
                     continue
                 if r.status_code >= 400:
                     raise requests.HTTPError(f"{r.status_code} voor {url}")
                 items, raw = extract(r.text, url, job, place)
+                if seq and raw == 0:
+                    finished.add(seq)                     # laatste pagina gehad
+                    continue
                 total += len(items)
                 raw_total += raw
                 items_all += items
             except requests.RequestException as e:
                 errors.append(f"{str(e)[:90]}")
+                if seq:
+                    finished.add(seq)
             time.sleep(random.uniform(1.0, 2.0))
+        items_all = list({i["url"]: i for i in items_all}.values())
+        total = len(items_all)
+
+        if OVERVIEW:
+            hits = [i for i in items_all if matches(i)]
+            if hits:
+                overview.append((name, hits))
+            continue
 
         if TEST:
             line = f"<b>{html.escape(name)}</b>: {total} in je regio ({raw_total} gescand)"
@@ -413,12 +462,20 @@ def main():
             state["fails"][name] = 0
             if first_time:
                 state["seeded"].append(name)
-                telegram(f"🤖 {html.escape(name)} gekoppeld: {total} bestaande advertenties in je regio "
-                         f"opgeslagen. Vanaf nu krijg je alleen nieuwe.")
+                hits = [i for i in items_all if matches(i)]
+                send_list(f"🤖 <b>{html.escape(name)} gekoppeld</b> – nu beschikbaar "
+                          f"({len(hits)}). Vanaf nu krijg je alleen nieuwe.", hits)
             print(f"{name}: {total} advertenties gezien")
 
     if TEST:
         telegram("🧪 <b>Huurbot test</b>\n\n" + "\n\n".join(report))
+        return
+
+    if OVERVIEW:
+        if not overview:
+            telegram("📋 Op dit moment staat er niets in je regio dat binnen je filters valt.")
+        for name, hits in overview:
+            send_list(f"📋 <b>Huidig aanbod – {html.escape(name)}</b>", hits)
         return
 
     for it, src in new_items:
