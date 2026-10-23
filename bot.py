@@ -114,6 +114,7 @@ def site_jobs():
 
 
 VESTEDA_SKIPPED = []
+SKIPPED = {}   # per bron: waarom woningen in je regio zijn overgeslagen (voor de test)
 
 
 def fetch_vesteda(session, radius=10):
@@ -334,12 +335,18 @@ def extract(page_html, page_url, job, page_place):
                     continue
                 place = "regio Gouda"
 
+        title_txt = a.get_text(" ", strip=True)
         if GONE_RE.search(block):
+            SKIPPED.setdefault(job["name"], []).append("verhuurd")
             continue
-        if EXCLUDE_RE and EXCLUDE_RE.search(url + " " + block):
+        # uitsluitwoorden alleen op link + korte titel, NIET op de omschrijving
+        # (anders valt "woning mét parkeerplaats" ook weg)
+        short_title = title_txt if len(title_txt) <= 70 else ""
+        if EXCLUDE_RE and EXCLUDE_RE.search(url + " " + short_title):
+            SKIPPED.setdefault(job["name"], []).append("uitgesloten")
             continue
 
-        title = a.get_text(" ", strip=True)
+        title = title_txt
         item = found.setdefault(url, {"url": url, "title": "", "place": place,
                                       "price": None, "area": None})
         if len(title) > len(item["title"]):
@@ -459,6 +466,10 @@ def main():
                 p = f"€{it['price']}" if it["price"] else "€?"
                 mark = "✅" if matches(it) else "🚫"
                 line += f"\n   {mark} {html.escape(it['title'][:45])} ({html.escape(str(it['place']))}) {p}"
+            sk = SKIPPED.get(name, [])
+            if sk:
+                line += (f"\n   overgeslagen in regio: {sk.count('verhuurd')}× verhuurd/gereserveerd, "
+                         f"{sk.count('uitgesloten')}× uitgesloten type")
             if job.get("api") == "vesteda" and VESTEDA_SKIPPED:
                 line += "\n   verhuurd/weggefilterd: " + html.escape(", ".join(VESTEDA_SKIPPED[:5]))
             report.append(line)
