@@ -1,8 +1,8 @@
 {
  "fails": {
   "123Wonen": 0,
-  "BPD Woningfonds": 0,
-  "Ikwilhuren (MVGM)": 0,
+  "BPD Woningfonds": 1,
+  "Ikwilhuren (MVGM)": 1,
   "Rotsvast": 0,
   "Stienstra Wonen": 0,
   "VB&T Verhuurmakelaars": 0,
@@ -34,6 +34,7 @@
   "https://www.vesteda.com/nl/goudshof/jozefhof-123-gouda-50503": 1792747953.6999993,
   "https://www.vesteda.com/nl/heeren-van-woerden/hoge-rijndijk-121-woerden-21330": 1792752745.5633745,
   "https://www.vesteda.com/nl/heeren-van-woerden/hoge-rijndijk-165-woerden-19780": 1792752745.5633698,
+  "https://www.vesteda.com/nl/klaverhof/klaverhof-24-alphen-aan-den-rijn-35030": 1793272633.216953,
   "https://www.vesteda.com/nl/woerden-centraal/jan-van-beierenlaan-107-woerden-39093": 1792752745.5633783
  }
 }
