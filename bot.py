@@ -465,7 +465,7 @@ def main():
                     it = {"url": p["url"], "place": place, "price": p["price"], "area": p["area"],
                           "categorie": p["categorie"], "label": p["label"],
                           "title": f"{'⚡ ' if fast else ''}{p['categorie']} – {p['title']}"
-                                   + (f" ({p['label']})" if p["label"] else "")}
+                                   + (f" · reageer vóór {p['deadline']}" if p.get("deadline") else "")}
                     if job.get("min_price") is not None:
                         it["min_price"] = job["min_price"]
                     items_all.append(it)

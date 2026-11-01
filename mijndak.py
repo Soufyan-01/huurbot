@@ -170,6 +170,21 @@ def fetch(session, state):
     return parse(data.get("data", data))
 
 
+def _deadline(s):
+    """'2026-11-02T07:00:00Z' -> 'ma 2 nov 08:00' (Nederlandse tijd)."""
+    if not s or str(s).startswith("1900"):
+        return ""
+    try:
+        from datetime import datetime
+        from zoneinfo import ZoneInfo
+        dt = datetime.fromisoformat(str(s).replace("Z", "+00:00")).astimezone(ZoneInfo("Europe/Amsterdam"))
+        dagen = ["ma", "di", "wo", "do", "vr", "za", "zo"]
+        maanden = ["jan", "feb", "mrt", "apr", "mei", "jun", "jul", "aug", "sep", "okt", "nov", "dec"]
+        return f"{dagen[dt.weekday()]} {dt.day} {maanden[dt.month - 1]} {dt:%H:%M}"
+    except Exception:
+        return ""
+
+
 def _f(x):
     try:
         return float(str(x).replace(",", "."))
@@ -217,12 +232,14 @@ def parse(data):
                 if o.get("IsCluster"):
                     c = o.get("Cluster") or {}
                     title = c.get("Naam") or street
-                    price = _f(c.get("PrijsMin")) if c.get("PrijsMinBekend") else 0
+                    price = (_f(c.get("PrijsMin")) if c.get("PrijsMinBekend") else 0) \
+                        or _f(o.get("GepersonaliseerdeHuur"))
                     area = c.get("WoonVertrekkenTotOppMin") or 0
                 else:
                     e = o.get("Eenheid") or {}
                     title = street
-                    price = _f(e.get("NettoHuur")) if e.get("NettoHuurBekend") else _f(e.get("Brutohuur"))
+                    price = (_f(e.get("NettoHuur")) if e.get("NettoHuurBekend") else 0) \
+                        or _f(e.get("Brutohuur")) or _f(o.get("GepersonaliseerdeHuur"))
                     area = _f(e.get("WoonVertrekkenTotOpp"))
                 e2 = o.get("Eenheid") or {}
                 c2 = o.get("Cluster") or {}
@@ -231,6 +248,7 @@ def parse(data):
                           e2.get("Doelgroep"), c2.get("Doelgroep"), e2.get("DetailSoort")]
                 fields = [str(x) for x in fields if x not in (None, "", 0)]
                 label = " · ".join(dict.fromkeys(fields))
+                deadline = _deadline(o.get("EinddatumTijd"))
                 soort = " ".join(str(x) for x in [o.get("EenheidSoort"), e2.get("DetailSoort"),
                                                   e2.get("Bestemming")] if x)
                 cat = categorize(cat, " ".join(fields), soort, str(o.get("PublicatieModel") or ""))
@@ -239,7 +257,7 @@ def parse(data):
                         "title": f"{title}, {city.title()}" if city else title,
                         "city": city, "wijk": wijk, "postcode": (a.get("Postcode") or "").strip(),
                         "price": int(round(price)) if price else None,
-                        "area": int(area) if area else None, "categorie": cat, "label": label}
+                        "area": int(area) if area else None, "categorie": cat, "label": label, "deadline": deadline}
                 if cat is None:                       # koop / parkeren
                     excluded.add(pid)
                     return
