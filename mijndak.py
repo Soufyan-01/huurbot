@@ -177,6 +177,24 @@ def _f(x):
         return 0.0
 
 
+def categorize(list_cat, text):
+    """Categorie uit de lijstnaam, of anders uit de omschrijving van de woning."""
+    if list_cat not in ("?", "Sociale huur", None):
+        return list_cat
+    t = text.lower()
+    if re.search(r"koop", t):
+        return None
+    if re.search(r"parkeer|garage|berging|bedrijfsruimte", t):
+        return None
+    if re.search(r"vrije\s*sector|vrijesector|geliberaliseerd", t):
+        return "Vrije sector"
+    if re.search(r"midden", t):
+        return "Middenhuur"
+    if re.search(r"loting", t):
+        return "Loting"
+    return list_cat
+
+
 RANK = {"?": 1, "Sociale huur": 2, "Loting": 3, "Middenhuur": 3, "Vrije sector": 3}
 
 
@@ -202,8 +220,14 @@ def parse(data):
                     title = street
                     price = _f(e.get("NettoHuur")) if e.get("NettoHuurBekend") else _f(e.get("Brutohuur"))
                     area = _f(e.get("WoonVertrekkenTotOpp"))
-                label = " · ".join(x for x in [o.get("AanbiedingProcesSoort"), o.get("PublicatieModel"),
-                                               o.get("ContractVorm")] if x)
+                e2 = o.get("Eenheid") or {}
+                c2 = o.get("Cluster") or {}
+                fields = [o.get("PublicatieModule"), o.get("PublicatieModel"), o.get("PublicatieLabel"),
+                          o.get("AanbiedingProcesSoort"), o.get("ContractVorm"),
+                          e2.get("Doelgroep"), c2.get("Doelgroep"), e2.get("DetailSoort")]
+                fields = [str(x) for x in fields if x not in (None, "", 0)]
+                label = " · ".join(dict.fromkeys(fields))
+                cat = categorize(cat, " ".join(fields))
                 item = {"url": f"{BASE}/HuisDetails?PublicatieId={pid}",
                         "title": f"{title}, {city.title()}" if city else title,
                         "city": city, "price": int(round(price)) if price else None,
