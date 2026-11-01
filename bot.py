@@ -17,6 +17,8 @@ from urllib.parse import urljoin, urlparse
 import requests
 import yaml
 
+import mijndak
+
 try:
     from curl_cffi import requests as browser_requests   # doet zich voor als Chrome
 except ImportError:
@@ -106,6 +108,7 @@ def site_jobs():
                     pages.append((base, p, None))
         jobs.append({"name": s["name"], "kind": "site", "api": s.get("api"),
                      "radius": s.get("radius", 10),
+                     "min_price": s.get("min_price"),
                      "radius_filtered": bool(s.get("radius_filtered")),
                      "pattern": re.compile(s["pattern"]) if s.get("pattern") else None,
                      "pages": pages,
@@ -377,7 +380,8 @@ def uid(url):
 
 def matches(item):
     p, a = item["price"], item["area"]
-    if p is not None and p >= 100 and not (MIN_P <= p <= MAX_P):
+    lo = item.get("min_price", MIN_P)
+    if p is not None and p >= 100 and not (lo <= p <= MAX_P):
         return False
     if CONFIG.get("min_area") and a is not None and a < CONFIG["min_area"]:
         return False
@@ -404,7 +408,8 @@ def send_list(header, items, per_msg=12):
 def fmt(item, source):
     price = f"€ {item['price']:,}".replace(",", ".") if item["price"] else "prijs onbekend"
     area = f" · {item['area']} m²" if item["area"] else ""
-    return (f"🏠 <b>{html.escape(item['title'])}</b>\n"
+    urgent = "🚨 <b>SNEL REAGEREN</b>\n" if item["title"].startswith("⚡") else ""
+    return (urgent + f"🏠 <b>{html.escape(item['title'])}</b>\n"
             f"📍 {html.escape(item['place'].replace('-', ' ').title())} · {price}{area}\n"
             f"🔗 {html.escape(item['url'])}\n<i>via {html.escape(source)}</i>")
 
@@ -425,6 +430,25 @@ def main():
                 raw_total = max(1, total)                 # lege regio is geen storing
             except (requests.RequestException, ValueError) as e:
                 errors.append(f"{e.__class__.__name__}: {str(e)[:80]}")
+        if job.get("api") == "mijndak":
+            try:
+                pubs = mijndak.fetch(session, state)
+                raw_total = max(1, len(pubs))
+                for p in pubs:
+                    hay = norm(p["city"])
+                    place = next((pl for pl in PLACES if norm(pl) == hay or norm(pl) in hay), None)
+                    if not place:
+                        continue
+                    fast = p["categorie"] in mijndak.FAST
+                    it = {"url": p["url"], "place": place, "price": p["price"], "area": p["area"],
+                          "title": f"{'⚡ ' if fast else ''}{p['categorie']} – {p['title']}"
+                                   + (f" ({p['label']})" if p["label"] else "")}
+                    if job.get("min_price") is not None:
+                        it["min_price"] = job["min_price"]
+                    items_all.append(it)
+                total = len(items_all)
+            except Exception as e:
+                errors.append(f"{e.__class__.__name__}: {str(e)[:120]}")
         finished = set()                                  # pagina-reeksen die op hun einde zijn
         prev_page = {}                                    # vorige pagina per reeks (dubbel-check)
         pages_ok = 0

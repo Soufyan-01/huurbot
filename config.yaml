@@ -47,6 +47,9 @@ portals:
 #   radius_filtered = site filtert zelf op afstand; dan ook plaatsen buiten je lijst tonen
 #   pattern         = stukje (regex) dat in elke advertentie-URL zit
 sites:
+  - name: MijnDAK Midden-Holland
+    api: mijndak
+    min_price: 0          # ook sociale huur (onder €800) tonen
   - name: Stienstra Wonen
     urls: ["https://www.stienstra.nl/uitgebreid-zoeken?lat=52.0115205&lng=4.7104633&use_radius=on&search_location=Gouda%2C+Nederland&radius=15&min-price=0&max-price=500000"]
     pattern: "/woning/"
