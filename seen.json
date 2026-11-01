@@ -3,10 +3,15 @@
   "123Wonen": 0,
   "BPD Woningfonds": 0,
   "Ikwilhuren (MVGM)": 0,
+  "MijnDAK Midden-Holland": 0,
   "Rotsvast": 0,
   "Stienstra Wonen": 0,
   "VB&T Verhuurmakelaars": 0,
   "Vesteda": 0
+ },
+ "mijndak_versions": {
+  "apiVersion": "7VY+7u8+RlC1gUalF+dr8Q",
+  "moduleVersion": "P_one+P4LDqbJ1Obu9uRaA"
  },
  "seeded": [
   "Stienstra Wonen",
@@ -15,11 +20,30 @@
   "VB&T Verhuurmakelaars",
   "Rotsvast",
   "123Wonen",
-  "BPD Woningfonds"
+  "BPD Woningfonds",
+  "MijnDAK Midden-Holland"
  ],
  "seen": {
   "852dd9c3189275f3eee16baa1b7d6649": 1793299232.306231,
   "e75f1e70db8daffe126855f63ca3c5d3": 1792752758.4642885,
+  "https://middenholland.mijndak.nl/HuisDetails?PublicatieId=385375": 1793570493.234233,
+  "https://middenholland.mijndak.nl/HuisDetails?PublicatieId=385715": 1793570493.2342348,
+  "https://middenholland.mijndak.nl/HuisDetails?PublicatieId=385716": 1793570493.2342365,
+  "https://middenholland.mijndak.nl/HuisDetails?PublicatieId=386081": 1793570493.2342372,
+  "https://middenholland.mijndak.nl/HuisDetails?PublicatieId=387252": 1793570493.2342381,
+  "https://middenholland.mijndak.nl/HuisDetails?PublicatieId=387413": 1793570493.2342389,
+  "https://middenholland.mijndak.nl/HuisDetails?PublicatieId=387690": 1793570493.2342398,
+  "https://middenholland.mijndak.nl/HuisDetails?PublicatieId=387719": 1793570493.2342405,
+  "https://middenholland.mijndak.nl/HuisDetails?PublicatieId=388078": 1793570493.2342412,
+  "https://middenholland.mijndak.nl/HuisDetails?PublicatieId=388090": 1793570493.234242,
+  "https://middenholland.mijndak.nl/HuisDetails?PublicatieId=388136": 1793570493.234243,
+  "https://middenholland.mijndak.nl/HuisDetails?PublicatieId=388158": 1793570493.2342436,
+  "https://middenholland.mijndak.nl/HuisDetails?PublicatieId=388229": 1793570493.2342443,
+  "https://middenholland.mijndak.nl/HuisDetails?PublicatieId=388345": 1793570493.234245,
+  "https://middenholland.mijndak.nl/HuisDetails?PublicatieId=388393": 1793570493.2342458,
+  "https://middenholland.mijndak.nl/HuisDetails?PublicatieId=388528": 1793570493.2342467,
+  "https://middenholland.mijndak.nl/HuisDetails?PublicatieId=388646": 1793570493.2342474,
+  "https://middenholland.mijndak.nl/HuisDetails?PublicatieId=388701": 1793570493.234248,
   "https://vbtverhuurmakelaars.nl/woning/gouda-vest-7-d": 1792752817.4736712,
   "https://www.rotsvast.nl/huren/anna-van-hensbeeksingel-gouda-h102510924/": 1793100851.7891796,
   "https://www.rotsvast.nl/huren/blauwstraat-gouda-h102511558/": 1792748088.955845,
