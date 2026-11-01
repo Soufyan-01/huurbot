@@ -230,7 +230,11 @@ def parse_int(s):
 
 
 def norm(s):
-    return re.sub(r"[-_+%20]+", " ", s.lower())
+    """Plaatsnamen vergelijkbaar maken: 'Nieuwerkerk a/d IJssel' == 'nieuwerkerk-aan-den-ijssel'."""
+    s = s.lower().replace("%20", " ")
+    s = re.sub(r"\ba\s*/\s*d\b|\ba\.\s*d\.?(?=\s)", "aan den", s)
+    s = re.sub(r"[-_+/,]+", " ", s)
+    return re.sub(r"\s+", " ", s).strip()
 
 
 def climb(a, max_len=1500):
