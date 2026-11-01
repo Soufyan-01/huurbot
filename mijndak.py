@@ -177,15 +177,19 @@ def _f(x):
         return 0.0
 
 
-def categorize(list_cat, text):
-    """Categorie uit de lijstnaam, of anders uit de omschrijving van de woning."""
+def categorize(list_cat, text, soort="", model=""):
+    """Categorie uit de lijstnaam, of anders uit de omschrijving van de woning.
+
+    Uitsluiten (None) gebeurt alleen op het soort object en het aanbodmodel,
+    niet op vrije tekst — anders valt 'woning met berging' ook weg.
+    """
+    if re.search(r"parkeer|garage|berging|bedrijfsruimte|winkel", soort.lower()):
+        return None
+    if re.search(r"\bkoop\b", model.lower()):
+        return None
     if list_cat not in ("?", "Sociale huur", None):
         return list_cat
     t = text.lower()
-    if re.search(r"koop", t):
-        return None
-    if re.search(r"parkeer|garage|berging|bedrijfsruimte", t):
-        return None
     if re.search(r"vrije\s*sector|vrijesector|geliberaliseerd", t):
         return "Vrije sector"
     if re.search(r"midden", t):
@@ -227,10 +231,14 @@ def parse(data):
                           e2.get("Doelgroep"), c2.get("Doelgroep"), e2.get("DetailSoort")]
                 fields = [str(x) for x in fields if x not in (None, "", 0)]
                 label = " · ".join(dict.fromkeys(fields))
-                cat = categorize(cat, " ".join(fields))
+                soort = " ".join(str(x) for x in [o.get("EenheidSoort"), e2.get("DetailSoort"),
+                                                  e2.get("Bestemming")] if x)
+                cat = categorize(cat, " ".join(fields), soort, str(o.get("PublicatieModel") or ""))
+                wijk = (a.get("Wijk") or "").strip()
                 item = {"url": f"{BASE}/HuisDetails?PublicatieId={pid}",
                         "title": f"{title}, {city.title()}" if city else title,
-                        "city": city, "price": int(round(price)) if price else None,
+                        "city": city, "wijk": wijk, "postcode": (a.get("Postcode") or "").strip(),
+                        "price": int(round(price)) if price else None,
                         "area": int(area) if area else None, "categorie": cat, "label": label}
                 if cat is None:                       # koop / parkeren
                     excluded.add(pid)

@@ -119,6 +119,22 @@ def site_jobs():
 VESTEDA_SKIPPED = []
 LAST_RAW = frozenset()
 MIJNDAK_ALL = []
+MIJNDAK_OUT = []   # woningen die buiten je plaatsen vielen (voor de test)
+
+
+def match_place(name):
+    """Herkent een plaats ook als alleen het eerste woord overeenkomt
+    ('Nieuwerkerk' -> nieuwerkerk-aan-den-ijssel)."""
+    hay = norm(name or "")
+    if not hay:
+        return None
+    for pl in PLACES:
+        p = norm(pl)
+        if p == hay or p in hay:
+            return pl
+        if " " in p and hay.split()[0] == p.split()[0] and len(hay.split()[0]) >= 6:
+            return pl
+    return None
 SKIPPED = {}   # per bron: waarom woningen in je regio zijn overgeslagen (voor de test)
 
 
@@ -441,9 +457,9 @@ def main():
                 raw_total = max(1, len(pubs))
                 MIJNDAK_ALL[:] = pubs
                 for p in pubs:
-                    hay = norm(p["city"])
-                    place = next((pl for pl in PLACES if norm(pl) == hay or norm(pl) in hay), None)
+                    place = match_place(p["city"]) or match_place(p.get("wijk", ""))
                     if not place:
+                        MIJNDAK_OUT.append(p)
                         continue
                     fast = p["categorie"] in mijndak.FAST
                     it = {"url": p["url"], "place": place, "price": p["price"], "area": p["area"],
@@ -510,12 +526,9 @@ def main():
                 regc = Counter(i.get("categorie") for i in items_all)
                 line += ("\n   heel Midden-Holland: " + ", ".join(f"{k} {v}" for k, v in allc.items())
                          + "\n   in jouw regio: " + ", ".join(f"{k} {v}" for k, v in regc.items()))
-                buiten = Counter(p["city"].title() for p in MIJNDAK_ALL
-                                 if p["categorie"] in mijndak.FAST
-                                 and p["url"] not in {i["url"] for i in items_all})
-                if buiten:
-                    line += "\n   middenhuur/vrije sector buiten je plaatsen: " + ", ".join(
-                        f"{k} {v}" for k, v in buiten.most_common(6))
+                if MIJNDAK_OUT:
+                    line += "\n   buiten je plaatsen: " + html.escape(", ".join(
+                        f"{p['title'][:28]} [{p['city']}]" for p in MIJNDAK_OUT[:10]))
             for it in items_all[:(40 if job.get("api") == "mijndak" else 8)]:
                 p = f"€{it['price']}" if it["price"] else "€?"
                 mark = "✅" if matches(it) else "🚫"
