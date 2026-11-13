@@ -1,10 +1,10 @@
 {
  "fails": {
   "123Wonen": 0,
-  "BPD Woningfonds": 10,
-  "Ikwilhuren (MVGM)": 10,
+  "BPD Woningfonds": 11,
+  "Ikwilhuren (MVGM)": 11,
   "MijnDAK Midden-Holland": 0,
-  "Rotsvast": 435,
+  "Rotsvast": 436,
   "Stienstra Wonen": 0,
   "VB&T Verhuurmakelaars": 0,
   "Vesteda": 0
@@ -70,6 +70,7 @@
   "https://middenholland.mijndak.nl/HuisDetails?PublicatieId=390321": 1794331250.8154469,
   "https://middenholland.mijndak.nl/HuisDetails?PublicatieId=390371": 1794369783.247264,
   "https://middenholland.mijndak.nl/HuisDetails?PublicatieId=390383": 1794369783.247269,
+  "https://middenholland.mijndak.nl/HuisDetails?PublicatieId=390743": 1794537807.336433,
   "https://middenholland.mijndak.nl/HuisDetails?PublicatieId=390780": 1794511627.8268552,
   "https://vbtverhuurmakelaars.nl/woning/gouda-vest-7-d": 1792752817.4736712,
   "https://www.123wonen.nl/huur/gouda/hoekwoning/johanna+westenengweg-164-44": 1793907331.9819112,
